@@ -1,0 +1,7 @@
+numpy
+pandas>=2.2
+matplotlib
+scipy
+yfinance
+jupyter
+ipykernel

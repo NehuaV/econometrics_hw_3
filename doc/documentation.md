@@ -12,6 +12,7 @@ Per [AGENTS.md](file:///Users/dobri/git/homework/econometrics_hw_3/AGENTS.md), t
 
 ```text
 ├── AGENTS.md                        # Mandatory domain, directory, and econometric rules
+├── main_analysis.ipynb              # Executed step-by-step submission notebook (tables + inline plots)
 ├── main_analysis.py                 # Standalone, reproducible submission script (no scripts/ imports)
 ├── pyproject.toml / uv.lock         # Python >= 3.15 environment managed via uv (hatchling backend)
 ├── data/                            # data/*.csv is gitignored; zip archive is tracked
@@ -59,7 +60,7 @@ In [pyproject.toml](file:///Users/dobri/git/homework/econometrics_hw_3/pyproject
 ```toml
 econometrics-hw-3 = "main_analysis:main"
 ```
-This allows running the pipeline directly via `uv run econometrics-hw-3` or `uv run python main_analysis.py`.
+For portable notebook submission (zip export), a standard [requirements.txt](file:///Users/dobri/git/homework/econometrics_hw_3/requirements.txt) is provided at the project root so the grader can install dependencies with `pip install -r requirements.txt` and run [main_analysis.ipynb](file:///Users/dobri/git/homework/econometrics_hw_3/main_analysis.ipynb).
 
 ---
 

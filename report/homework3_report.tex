@@ -1,6 +1,6 @@
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[margin=2.2cm]{geometry}
+\usepackage[margin=2.4cm]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -8,17 +8,12 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{float}
-\usepackage{array}
-\usepackage{multirow}
-\usepackage{xcolor}
-\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=blue!50!black]{hyperref}
 
-\setlength{\parskip}{0.5em}
+\setlength{\parskip}{0.45em}
 \setlength{\parindent}{0pt}
 
 \begin{document}
 
-% Header matching assignment style
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} lr}
 \textsc{Universit\`a della Svizzera italiana} & \textsc{Faculty of Economics} \\
@@ -28,232 +23,158 @@
 
 \vspace{0.6em}
 \noindent\textbf{FINANCIAL ECONOMETRICS -- Homework 3} \\
-\textbf{Estimating and Testing Multifactor Pricing Models (Fama--French 3-Factor Model)}
+\textbf{Estimating and Testing Multifactor Pricing Models} \\[0.4em]
+{\small
+Alessia Battistella (25-983-487) \quad Dobri Trifonov (25-983-834) \quad Kyla Kaplan (21-980-321) \\
+Tze Qing Ginnie Lee (25-983-719) \quad Lorenzo Comi (25-983-529) \\[0.2em]
+19th November 2026
+}
 
 \vspace{0.3em}
 \hrule
 \vspace{1.0em}
 
-\section{Data Ingestion and Dataset Preparation}
+\section*{1--2. Data and Descriptive Statistics}
 
-\subsection{Data Sources, Cleaning, and Alignment}
-Two datasets are combined over the sample period \textbf{January 1980 -- December 2019}:
-\begin{enumerate}
-    \item \textbf{Fama--French 3 Factors (\texttt{F-F\_Research\_Data\_Factors.csv}):} Downloaded from the Kenneth R.\ French Data Library. The raw CSV contains two data blocks separated by header text: lines 1--3 contain descriptive metadata, lines 5--1208 contain the monthly factor series (\texttt{192607}--\texttt{202609}) with columns \texttt{YYYYMM}, \texttt{Mkt-RF}, \texttt{SMB}, \texttt{HML}, and \texttt{RF}, and a second block starting at line 1210 (\texttt{Annual Factors: January-December}) followed by a copyright footer. Our parser extracts strictly the monthly block, discards the annual block and metadata, and verifies zero missing values.
-    \item \textbf{Monthly Stock Prices (Yahoo Finance):} Adjusted Close prices (accounting for splits and dividends) for International Business Machines (\texttt{IBM}), General Electric (\texttt{GE}), and Johnson \& Johnson (\texttt{JNJ}) from January 1, 1980 to December 31, 2019 ($480$ monthly price observations). Note that Yahoo Finance's \texttt{1mo} endpoint omits \texttt{JNJ} prices prior to January 1985; therefore, daily Adjusted Close prices were downloaded and resampled to month-end (\texttt{ME}) closing prices, yielding a complete $480 \times 3$ panel across all three stocks (which matches Yahoo's \texttt{1mo} Adjusted Close to within $10^{-4}$ wherever both exist).
-\end{enumerate}
+Monthly Fama--French three-factor data (\texttt{Mkt-RF}, \texttt{SMB}, \texttt{HML}, and \texttt{RF}) come from the Kenneth R.\ French Data Library. The CSV contains a monthly block followed by an annual block starting at line 1210; we parse only the monthly section and divide all columns by $100$ to convert from percentages to decimals. Monthly Adjusted Close prices for \texttt{IBM}, \texttt{GE}, and \texttt{JNJ} from January 1980 to December 2019 ($480$ observations) are taken from Yahoo Finance. Because Yahoo's monthly endpoint is missing \texttt{JNJ} data prior to 1985, daily Adjusted Close prices were downloaded and resampled to month-end closing prices, matching the monthly series where both exist.
 
-\subsection{Return Construction and Units of Measurement}
-Simple monthly stock returns are computed from Adjusted Close prices $P_{i,t}$ as
-\begin{equation*}
-    R_{i,t} = \frac{P_{i,t}}{P_{i,t-1}} - 1, \qquad i \in \{\text{IBM}, \text{GE}, \text{JNJ}\}.
-\end{equation*}
-Differencing drops the initial month (January 1980), leaving $T = 479$ monthly return observations spanning \textbf{February 1980 -- December 2019} (\texttt{198002}--\texttt{201912}). Accordingly, the Fama--French monthly series is sliced to the exact matching $479$ months (\texttt{198002}--\texttt{201912}), and exact date alignment is verified programmatically.
-
-Crucially, Kenneth R.\ French reports factor returns and the risk-free rate in \textbf{percentage points} (e.g., $1.25$ denotes $1.25\%$), whereas stock returns $R_{i,t}$ computed from price ratios are in \textbf{decimals} ($0.0125$). All Fama--French columns (\texttt{Mkt-RF}, \texttt{SMB}, \texttt{HML}, \texttt{RF}) are divided by $100$ prior to forming monthly excess stock returns:
-\begin{equation*}
-    y_{i,t} = R_{i,t} - RF_t, \qquad t = 1, \dots, T \quad (T = 479).
-\end{equation*}
-
-\subsection{Descriptive Statistics and Return Distributions}
-Table~\ref{tab:desc_stats} reports monthly and annualized summary statistics (in decimals) for the raw stock returns $R_{i,t}$, excess stock returns $y_{i,t}$, the three Fama--French factors, and the risk-free rate $RF_t$. Figure~\ref{fig:hist_excess} displays histograms of the monthly excess returns alongside fitted normal densities, and Figure~\ref{fig:hist_ff} shows the distributions of the three factors (raw return histograms are shown in Figure~\ref{fig:hist_raw}).
+Computing simple monthly returns $R_{i,t} = P_{i,t}/P_{i,t-1} - 1$ drops January 1980, leaving $T = 479$ observations from February 1980 to December 2019. Slicing the Fama--French factors to the same dates, we form monthly excess returns $y_{i,t} = R_{i,t} - RF_t$. Table~\ref{tab:desc} summarizes the monthly series (in decimals) and Figure~\ref{fig:hist} shows the histograms of monthly excess returns.
 
 \begin{table}[H]
 \centering
-\caption{Descriptive Statistics of Monthly Stock Returns, Excess Returns, and Fama--French Factors (Feb 1980 -- Dec 2019, $T = 479$, values in decimals)}
-\label{tab:desc_stats}
-\footnotesize
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{lrrrrrrrrr}
+\caption{Monthly Descriptive Statistics (Feb 1980 -- Dec 2019, $T = 479$, decimals)}
+\label{tab:desc}
+\small
+\begin{tabular}{lrrrrr}
 \toprule
-Series & Mean & Std.\ Dev. & Min & Median & Max & Skew & Ex.\ Kurt. & Ann.\ Mean & Ann.\ Std \\
+Series & Mean & Std.\ Dev. & Min & Median & Max \\
 \midrule
-IBM ($R_{i,t}$) & 0.0092 & 0.0733 & -0.2619 & 0.0078 & 0.3538 & 0.1901 & 2.1160 & 0.1100 & 0.2539 \\
-GE ($R_{i,t}$)  & 0.0101 & 0.0730 & -0.2778 & 0.0050 & 0.3421 & -0.0903 & 2.0436 & 0.1207 & 0.2528 \\
-JNJ ($R_{i,t}$) & 0.0131 & 0.0574 & -0.1734 & 0.0132 & 0.1881 & -0.0156 & 0.5910 & 0.1573 & 0.1989 \\
+IBM ($R_{i,t}$) & 0.0092 & 0.0733 & -0.2619 & 0.0078 & 0.3538 \\
+GE ($R_{i,t}$)  & 0.0101 & 0.0730 & -0.2778 & 0.0050 & 0.3421 \\
+JNJ ($R_{i,t}$) & 0.0131 & 0.0574 & -0.1734 & 0.0132 & 0.1881 \\
 \midrule
-IBM ($y_{i,t}$) & 0.0057 & 0.0733 & -0.2647 & 0.0056 & 0.3524 & 0.1887 & 2.0898 & 0.0686 & 0.2540 \\
-GE ($y_{i,t}$)  & 0.0066 & 0.0728 & -0.2779 & 0.0023 & 0.3400 & -0.0642 & 2.0373 & 0.0793 & 0.2523 \\
-JNJ ($y_{i,t}$) & 0.0097 & 0.0573 & -0.1812 & 0.0113 & 0.1843 & -0.0625 & 0.6155 & 0.1160 & 0.1984 \\
+IBM ($y_{i,t}$) & 0.0057 & 0.0733 & -0.2647 & 0.0056 & 0.3524 \\
+GE ($y_{i,t}$)  & 0.0066 & 0.0728 & -0.2779 & 0.0023 & 0.3400 \\
+JNJ ($y_{i,t}$) & 0.0097 & 0.0573 & -0.1812 & 0.0113 & 0.1843 \\
 \midrule
-Mkt-RF          & 0.0067 & 0.0439 & -0.2319 & 0.0112 & 0.1245 & -0.7603 & 2.3997 & 0.0808 & 0.1522 \\
-SMB             & 0.0006 & 0.0295 & -0.1739 & 0.0008 & 0.2134 & 0.5571 & 7.9592 & 0.0077 & 0.1024 \\
-HML             & 0.0024 & 0.0290 & -0.1101 & 0.0009 & 0.1225 & 0.2569 & 1.7917 & 0.0285 & 0.1004 \\
-RF              & 0.0034 & 0.0029 & 0.0000 & 0.0034 & 0.0135 & 0.8607 & 0.6364 & 0.0414 & 0.0101 \\
+Mkt-RF          & 0.0067 & 0.0439 & -0.2319 & 0.0112 & 0.1245 \\
+SMB             & 0.0006 & 0.0295 & -0.1739 & 0.0008 & 0.2134 \\
+HML             & 0.0024 & 0.0290 & -0.1101 & 0.0009 & 0.1225 \\
+RF              & 0.0034 & 0.0029 &  0.0000 & 0.0034 & 0.0135 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Over the 40-year sample, \texttt{JNJ} exhibits the highest average monthly excess return ($0.97\%$/month, or $11.60\%$ annualized) paired with the lowest return volatility ($5.73\%$/month, or $19.84\%$ annualized) and mild excess kurtosis ($0.62$). By contrast, \texttt{IBM} and \texttt{GE} exhibit noticeably higher monthly volatility ($\approx 7.3\%$ per month, $\approx 25.3\%$ annualized) and heavier tails (excess kurtosis $\approx 2.0$--$2.1$). Among the factors, \texttt{Mkt-RF} has a mean equity risk premium of $0.67\%$/month ($8.08\%$ annualized) and notable negative skewness ($-0.76$, driven by crash months such as October 1987 at $-23.19\%$), while \texttt{SMB} displays extreme leptokurtosis ($7.96$) due to dot-com era small-cap swings.
+Among the three stocks, \texttt{JNJ} has the highest average monthly excess return ($0.97\%$) and the lowest volatility ($5.73\%$), while \texttt{IBM} and \texttt{GE} are noticeably more volatile (about $7.3\%$ per month) with wider extreme realizations. The market excess return averages $0.67\%$ per month with a standard deviation of $4.39\%$, whereas \texttt{SMB} and \texttt{HML} have smaller means ($0.06\%$ and $0.24\%$) and lower volatility (about $2.9\%$).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../output/hist_stock_excess_returns.pdf}
-    \caption{Histograms of Monthly Excess Returns ($y_{i,t} = R_{i,t} - RF_t$) for IBM, GE, and JNJ (Feb 1980 -- Dec 2019).}
-    \label{fig:hist_excess}
+    \caption{Histograms of monthly excess returns ($y_{i,t} = R_{i,t} - RF_t$) for IBM, GE, and JNJ.}
+    \label{fig:hist}
 \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{../output/hist_ff_factors.pdf}
-    \caption{Histograms of Monthly Fama--French Three Factors (Mkt-RF, SMB, HML) over Feb 1980 -- Dec 2019.}
-    \label{fig:hist_ff}
-\end{figure}
+\section*{3.1. Estimation}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{../output/hist_stock_raw_returns.pdf}
-    \caption{Histograms of Monthly Raw Stock Returns ($R_{i,t}$) for IBM, GE, and JNJ (Feb 1980 -- Dec 2019).}
-    \label{fig:hist_raw}
-\end{figure}
-
-\section{Estimation of the Fama--French 3-Factor Model}
-
-\subsection{Vector Form for Observation \texorpdfstring{$t$}{t} (Question 3.1.a)}
-The three-factor pricing regression for company $i$ at month $t$:
-\begin{equation*}
-    y_{i,t} = \alpha_i + \beta_{1,i} RM_t + \beta_{2,i} SMB_t + \beta_{3,i} HML_t + \varepsilon_{i,t}
-\end{equation*}
-can be written in vector inner-product form as
+\subsection*{a. Factor model in vector form}
+The Fama--French three-factor model for company $i$ at time $t$ can be written as
 \begin{equation*}
     y_{it} = \alpha_i + \underset{1 \times K}{x_t'} \, \underset{K \times 1}{\beta_i} + \varepsilon_{it},
 \end{equation*}
-where:
-\begin{itemize}
-    \item $K = 3$ is the number of systematic risk factors;
-    \item $x_t = \begin{bmatrix} RM_t \\ SMB_t \\ HML_t \end{bmatrix} \in \mathbb{R}^{3 \times 1}$ is the column vector of factor realizations at time $t$ (so $x_t' = [RM_t, SMB_t, HML_t]$ is $1 \times 3$);
-    \item $\beta_i = \begin{bmatrix} \beta_{1,i} \\ \beta_{2,i} \\ \beta_{3,i} \end{bmatrix} \in \mathbb{R}^{3 \times 1}$ is the column vector of firm $i$'s factor sensitivities (loadings on the market, size, and value factors).
-\end{itemize}
+where the number of factors is $K = 3$, and the $3 \times 1$ vectors of factors and factor loadings are
+\begin{equation*}
+    x_t = \begin{bmatrix} RM_t \\ SMB_t \\ HML_t \end{bmatrix}, \qquad
+    \beta_i = \begin{bmatrix} \beta_{1,i} \\ \beta_{2,i} \\ \beta_{3,i} \end{bmatrix}.
+\end{equation*}
 
-\subsection{Compact Matrix Form (Question 3.1.b)}
-Stacking all $T = 479$ time-series observations ($t = 1, \dots, T$) for company $i$ gives the compact matrix representation:
+\subsection*{b. Compact matrix form}
+Stacking all $T = 479$ monthly observations for firm $i$ gives
 \begin{equation*}
     \underset{T \times 1}{y_i} = S\alpha_i + \underset{T \times K}{X} \, \underset{K \times 1}{\beta_i} + \varepsilon_i,
 \end{equation*}
-where each symbol has the following meaning and dimension:
+where:
 \begin{itemize}
-    \item $y_i = [y_{i,1}, y_{i,2}, \dots, y_{i,T}]' \in \mathbb{R}^{479 \times 1}$: vector of monthly excess returns for firm $i$;
-    \item $S = \mathbf{1}_T = [1, 1, \dots, 1]' \in \mathbb{R}^{479 \times 1}$: vector of ones corresponding to the intercept;
-    \item $\alpha_i \in \mathbb{R}$: scalar intercept (Jensen's alpha), measuring abnormal return unexplained by the three factors;
-    \item $X = [x_1, x_2, \dots, x_T]' = \begin{bmatrix} RM_1 & SMB_1 & HML_1 \\ \vdots & \vdots & \vdots \\ RM_T & SMB_T & HML_T \end{bmatrix} \in \mathbb{R}^{479 \times 3}$: matrix of factor excess returns;
-    \item $\beta_i \in \mathbb{R}^{3 \times 1}$: vector of factor loadings for company $i$;
-    \item $\varepsilon_i = [\varepsilon_{i,1}, \dots, \varepsilon_{i,T}]' \in \mathbb{R}^{479 \times 1}$: vector of idiosyncratic error terms satisfying $\varepsilon_i \sim i.i.d.(\mathbf{0}, \sigma_i^2 I_T)$ with $\sigma_i^2 > 0$.
+    \item $y_i = [y_{i,1}, \dots, y_{i,T}]'$ is the $T \times 1$ ($479 \times 1$) vector of monthly excess returns for firm $i$;
+    \item $S = [1, \dots, 1]'$ is a $T \times 1$ vector of ones for the intercept;
+    \item $\alpha_i \in \mathbb{R}$ is the scalar intercept (Jensen's alpha) for firm $i$;
+    \item $X = [x_1, \dots, x_T]'$ is the $T \times K$ ($479 \times 3$) matrix whose columns are $RM$, $SMB$, and $HML$;
+    \item $\beta_i = [\beta_{1,i}, \beta_{2,i}, \beta_{3,i}]'$ is the $K \times 1$ ($3 \times 1$) vector of factor loadings;
+    \item $\varepsilon_i = [\varepsilon_{i,1}, \dots, \varepsilon_{i,T}]'$ is the $T \times 1$ vector of i.i.d.\ error terms with $\mathbb{E}[\varepsilon_i] = \mathbf{0}$ and $V(\varepsilon_i) = \sigma_i^2 I_T$.
 \end{itemize}
 
-\subsection{Manual OLS Estimation Procedure (Question 3.1.c)}
-To estimate the model manually without built-in OLS routines, we form the augmented $T \times (K+1)$ ($479 \times 4$) design matrix $\tilde{X} = [S,\; X]$ and parameter vector $\theta_i = [\alpha_i,\; \beta_i']' \in \mathbb{R}^{4 \times 1}$, so that $y_i = \tilde{X}\theta_i + \varepsilon_i$. Minimizing the sum of squared residuals $\varepsilon_i'\varepsilon_i$ yields the normal equations $(\tilde{X}'\tilde{X})\hat{\theta}_i = \tilde{X}'y_i$, and hence the manual OLS estimator:
+\subsection*{c. Manual OLS estimation}
+Defining the augmented design matrix $\tilde{X} = [S,\; X]$ ($479 \times 4$) and parameter vector $\theta_i = [\alpha_i,\; \beta_i']'$ ($4 \times 1$), the model becomes $y_i = \tilde{X}\theta_i + \varepsilon_i$. For each company separately, we compute the OLS estimator manually via matrix algebra (see the accompanying notebook \texttt{main\_analysis.ipynb}):
 \begin{equation*}
     \hat{\theta}_i = \begin{bmatrix} \hat{\alpha}_i \\ \hat{\beta}_i \end{bmatrix} = (\tilde{X}'\tilde{X})^{-1}\tilde{X}'y_i.
 \end{equation*}
-From the OLS residuals $\hat{\varepsilon}_i = y_i - \tilde{X}\hat{\theta}_i$, the unbiased estimator of the idiosyncratic error variance is
+From the residual vector $\hat{\varepsilon}_i = y_i - \tilde{X}\hat{\theta}_i$, the unbiased estimator of the error variance with $T - K - 1 = 475$ degrees of freedom is
 \begin{equation*}
-    \hat{\sigma}_i^2 = \frac{\hat{\varepsilon}_i'\hat{\varepsilon}_i}{T - K - 1}, \qquad (T - K - 1 = 475),
+    \hat{\sigma}_i^2 = \frac{\hat{\varepsilon}_i'\hat{\varepsilon}_i}{T - K - 1},
 \end{equation*}
-so the estimated error variance--covariance matrix for firm $i$ under the $i.i.d.$ assumption is $\hat{V}(\varepsilon_i) = \hat{\sigma}_i^2 I_T$. The estimated covariance matrix of the OLS parameters is $\widehat{\mathrm{Var}}(\hat{\theta}_i) = \hat{\sigma}_i^2 (\tilde{X}'\tilde{X})^{-1}$, from which standard errors $\mathrm{SE}(\hat{\theta}_{i,j}) = \sqrt{[\widehat{\mathrm{Var}}(\hat{\theta}_i)]_{jj}}$ and $t$-statistics $t_{i,j} = \hat{\theta}_{i,j} / \mathrm{SE}(\hat{\theta}_{i,j})$ (evaluated against $t_{475}$) are computed.
+giving $\hat{V}(\varepsilon_i) = \hat{\sigma}_i^2 I_T$ and parameter covariance matrix $\widehat{\mathrm{Var}}(\hat{\theta}_i) = \hat{\sigma}_i^2(\tilde{X}'\tilde{X})^{-1}$. Standard errors are the square roots of the diagonal entries of $\widehat{\mathrm{Var}}(\hat{\theta}_i)$, and $t$-statistics are evaluated against a $t_{475}$ distribution.
 
-\subsection{Empirical Results (Question 3.1.d)}
-Table~\ref{tab:ols_results} reports the manual OLS parameter estimates $\hat{\alpha}_i$ and $\hat{\beta}_i$, standard errors, $t$-statistics, $p$-values, and goodness-of-fit statistics for \texttt{IBM}, \texttt{GE}, and \texttt{JNJ}. Figure~\ref{fig:betas_comp} visualizes the point estimates with 95\% confidence intervals.
+\subsection*{d. Parameter estimates, error covariance, and interpretation}
+Table~\ref{tab:ols} reports the estimated intercepts $\hat{\alpha}_i$ and factor loadings $\hat{\beta}_i$ for all three companies, along with standard errors, $t$-statistics, $p$-values, and $R^2$.
 
 \begin{table}[H]
 \centering
-\caption{Manual OLS Estimates of the Fama--French 3-Factor Model ($T = 479$, $\text{df} = 475$)}
-\label{tab:ols_results}
+\caption{Manual OLS Estimates for the Fama--French 3-Factor Model ($T = 479$, $\text{df} = 475$)}
+\label{tab:ols}
 \small
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{llrrrrrr}
+\begin{tabular}{lccc}
 \toprule
-Firm & Parameter & Estimate & Std.\ Error & $t$-statistic & $p$-value & 95\% CI & Fit / Residual \\
+ & IBM & GE & JNJ \\
 \midrule
-\multirow{4}{*}{IBM}
- & $\hat{\alpha}$       &  0.0003 & 0.0029 &  0.1211 & 0.9037 & $[-0.0053,\;  0.0060]$ & $\hat{\sigma}^2 = 0.003747$ \\
- & $\hat{\beta}_{MKT}$  &  0.8981 & 0.0671 & 13.3905 & $<0.0001$ & $[ 0.7663,\;  1.0299]$ & $\hat{\sigma} = 0.0612$ \\
- & $\hat{\beta}_{SMB}$  & -0.2059 & 0.0993 & -2.0728 & 0.0387 & $[-0.4010,\; -0.0107]$ & $R^2 = 0.3071$ \\
- & $\hat{\beta}_{HML}$  & -0.2286 & 0.1025 & -2.2310 & 0.0261 & $[-0.4300,\; -0.0273]$ & $\bar{R}^2 = 0.3028$ \\
+$\hat{\alpha}_i$ & $0.0003$ & $-0.0021$ & $0.0058^{***}$ \\
+ & $(0.0029)$ & $(0.0024)$ & $(0.0022)$ \\
+ & $[t = 0.12,\; p = 0.904]$ & $[t = -0.88,\; p = 0.379]$ & $[t = 2.66,\; p = 0.008]$ \\[0.5em]
+$\hat{\beta}_{1,i}$ (\texttt{Mkt-RF}) & $0.8981^{***}$ & $1.2270^{***}$ & $0.6942^{***}$ \\
+ & $(0.0671)$ & $(0.0567)$ & $(0.0517)$ \\
+ & $[t = 13.39,\; p < 0.001]$ & $[t = 21.62,\; p < 0.001]$ & $[t = 13.44,\; p < 0.001]$ \\[0.5em]
+$\hat{\beta}_{2,i}$ (\texttt{SMB}) & $-0.2059^{**}$ & $-0.3057^{***}$ & $-0.5849^{***}$ \\
+ & $(0.0993)$ & $(0.0840)$ & $(0.0765)$ \\
+ & $[t = -2.07,\; p = 0.039]$ & $[t = -3.64,\; p < 0.001]$ & $[t = -7.64,\; p < 0.001]$ \\[0.5em]
+$\hat{\beta}_{3,i}$ (\texttt{HML}) & $-0.2286^{**}$ & $0.2852^{***}$ & $-0.2001^{**}$ \\
+ & $(0.1025)$ & $(0.0867)$ & $(0.0789)$ \\
+ & $[t = -2.23,\; p = 0.026]$ & $[t = 3.29,\; p = 0.001]$ & $[t = -2.53,\; p = 0.012]$ \\
 \midrule
-\multirow{4}{*}{GE}
- & $\hat{\alpha}$       & -0.0021 & 0.0024 & -0.8815 & 0.3785 & $[-0.0069,\;  0.0026]$ & $\hat{\sigma}^2 = 0.002683$ \\
- & $\hat{\beta}_{MKT}$  &  1.2270 & 0.0567 & 21.6206 & $<0.0001$ & $[ 1.1154,\;  1.3385]$ & $\hat{\sigma} = 0.0518$ \\
- & $\hat{\beta}_{SMB}$  & -0.3057 & 0.0840 & -3.6372 & 0.0003 & $[-0.4708,\; -0.1405]$ & $R^2 = 0.4974$ \\
- & $\hat{\beta}_{HML}$  &  0.2852 & 0.0867 &  3.2891 & 0.0011 & $[ 0.1148,\;  0.4555]$ & $\bar{R}^2 = 0.4943$ \\
-\midrule
-\multirow{4}{*}{JNJ}
- & $\hat{\alpha}$       &  0.0058 & 0.0022 &  2.6584 & 0.0081 & $[ 0.0015,\;  0.0102]$ & $\hat{\sigma}^2 = 0.002223$ \\
- & $\hat{\beta}_{MKT}$  &  0.6942 & 0.0517 & 13.4367 & $<0.0001$ & $[ 0.5927,\;  0.7957]$ & $\hat{\sigma} = 0.0472$ \\
- & $\hat{\beta}_{SMB}$  & -0.5849 & 0.0765 & -7.6448 & $<0.0001$ & $[-0.7352,\; -0.4345]$ & $R^2 = 0.3267$ \\
- & $\hat{\beta}_{HML}$  & -0.2001 & 0.0789 & -2.5348 & 0.0116 & $[-0.3552,\; -0.0450]$ & $\bar{R}^2 = 0.3225$ \\
+$\hat{\sigma}_i^2$ & 0.003747 & 0.002683 & 0.002223 \\
+$\hat{\sigma}_i$   & 0.0612 & 0.0518 & 0.0472 \\
+$R^2$              & 0.3071 & 0.4974 & 0.3267 \\
+Adjusted $R^2$     & 0.3028 & 0.4943 & 0.3225 \\
 \bottomrule
+\multicolumn{4}{l}{\footnotesize SE in parentheses; $t$-statistic and $p$-value in brackets. $^{**}p<0.05$, $^{***}p<0.01$.}
 \end{tabular}
 \end{table}
 
-\paragraph{Error Variance--Covariance Estimates $\hat{V}(\varepsilon_i)$:}
-Under the single-equation assumption $\varepsilon_i \sim i.i.d.(\mathbf{0}, \sigma_i^2 I_T)$, the estimated $T \times T$ error variance--covariance matrix for each firm is $\hat{V}(\varepsilon_i) = \hat{\sigma}_i^2 I_{479}$, with idiosyncratic variance estimates:
+\textbf{Error variance--covariance estimates $\hat{V}(\varepsilon_i)$:}
+Under the single-equation assumption $\varepsilon_i \sim i.i.d.(\mathbf{0}, \sigma_i^2 I_T)$, the estimated $T \times T$ error covariance matrices are
 \begin{equation*}
     \hat{V}(\varepsilon_{\text{IBM}}) = 0.003747\, I_{479}, \qquad
     \hat{V}(\varepsilon_{\text{GE}}) = 0.002683\, I_{479}, \qquad
-    \hat{V}(\varepsilon_{\text{JNJ}}) = 0.002223\, I_{479},
+    \hat{V}(\varepsilon_{\text{JNJ}}) = 0.002223\, I_{479}.
 \end{equation*}
-corresponding to monthly idiosyncratic volatilities $\hat{\sigma}_i$ of $6.12\%$ (\texttt{IBM}), $5.18\%$ (\texttt{GE}), and $4.72\%$ (\texttt{JNJ}).
+If we also stack the residuals across the three firms ($\hat{E} = [\hat{\varepsilon}_{\text{IBM}}, \hat{\varepsilon}_{\text{GE}}, \hat{\varepsilon}_{\text{JNJ}}]$), the $3 \times 3$ contemporaneous sample error covariance matrix $\hat{\Sigma}_{\varepsilon} = \frac{1}{475}\hat{E}'\hat{E}$ is:
+\begin{equation*}
+    \hat{\Sigma}_{\varepsilon} =
+    \begin{bmatrix}
+        0.003747 & 0.000082 & -0.000128 \\
+        0.000082 & 0.002683 &  0.000065 \\
+       -0.000128 & 0.000065 &  0.002223
+    \end{bmatrix}.
+\end{equation*}
+The off-diagonal terms are very close to zero (corresponding to residual correlations of $0.026$, $-0.044$, and $0.026$), which shows that the three factors capture almost all common co-movement across these firms.
 
-For completeness, Table~\ref{tab:error_cov} reports the $3 \times 3$ cross-firm contemporaneous residual variance--covariance matrix $\hat{\Sigma}_{\varepsilon} = \frac{1}{T - K - 1}\hat{E}'\hat{E}$ (where $\hat{E} = [\hat{\varepsilon}_{\text{IBM}}, \hat{\varepsilon}_{\text{GE}}, \hat{\varepsilon}_{\text{JNJ}}]$) and the corresponding residual correlation matrix. Off-diagonal residual correlations are very close to zero ($0.0259$, $-0.0444$, $0.0265$), confirming that the three common Fama--French factors capture virtually all shared co-movement across these three firms in distinct sectors, leaving nearly orthogonal firm-specific shocks.
+\textbf{Statistical and economic interpretation:}
 
-\begin{table}[H]
-\centering
-\caption{Cross-Firm Residual Variance--Covariance Matrix $\hat{\Sigma}_{\varepsilon}$ (Left) and Correlation Matrix (Right)}
-\label{tab:error_cov}
-\small
-\begin{tabular}{lrrr}
-\toprule
-$\hat{\Sigma}_{\varepsilon}$ & IBM & GE & JNJ \\
-\midrule
-IBM &  0.003747 &  0.000082 & -0.000128 \\
-GE  &  0.000082 &  0.002683 &  0.000065 \\
-JNJ & -0.000128 &  0.000065 &  0.002223 \\
-\bottomrule
-\end{tabular}
-\hspace{1.5cm}
-\begin{tabular}{lrrr}
-\toprule
-$\widehat{\mathrm{Corr}}(\varepsilon)$ & IBM & GE & JNJ \\
-\midrule
-IBM &  1.0000 &  0.0259 & -0.0444 \\
-GE  &  0.0259 &  1.0000 &  0.0265 \\
-JNJ & -0.0444 &  0.0265 &  1.0000 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\textit{Intercepts ($\hat{\alpha}_i$).} Under the 3-factor model, abnormal returns should be zero ($\alpha_i = 0$). For \texttt{IBM} ($\hat{\alpha} = 0.0003$, $p = 0.904$) and \texttt{GE} ($\hat{\alpha} = -0.0021$, $p = 0.379$), we cannot reject $H_0: \alpha_i = 0$; even though \texttt{GE} underperformed heavily in the latter part of the sample, its average monthly alpha is not statistically different from zero over the full 40-year window. By contrast, \texttt{JNJ} has a positive and statistically significant alpha of $0.0058$ per month (about $7.0\%$ annualized, $t = 2.66$, $p = 0.008$), indicating that \texttt{JNJ} earned returns above what its market, size, and value exposures explain.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{../output/regression_betas_comparison.pdf}
-    \caption{Comparison of Estimated Monthly Alphas ($\hat{\alpha}_i$, in \%) and Factor Loadings ($\hat{\beta}_i$) with 95\% Confidence Intervals.}
-    \label{fig:betas_comp}
-\end{figure}
+\textit{Market exposure ($\hat{\beta}_{1,i}$).} Market betas are large and strongly significant ($p < 0.001$) for all three stocks, and they differ across industries. \texttt{GE} has the highest systematic risk ($\hat{\beta}_1 = 1.2270$), consistent with a cyclical industrial conglomerate that also carried substantial financial-sector exposure through GE Capital. \texttt{IBM} sits just below the market average at $0.8981$. \texttt{JNJ} has a clearly defensive beta of $0.6942$, reflecting stable demand for pharmaceuticals and healthcare products across business cycles.
 
-\subsection{Statistical and Economic Interpretation}
-\begin{enumerate}
-    \item \textbf{Pricing Accuracy and Jensen's Alpha ($\hat{\alpha}_i$):}
-    Under the null hypothesis that the Fama--French 3-factor model completely prices expected excess returns ($H_0: \alpha_i = 0$), \texttt{IBM} ($\hat{\alpha} = 0.0003$, $t = 0.12$, $p = 0.904$) and \texttt{GE} ($\hat{\alpha} = -0.0021$, $t = -0.88$, $p = 0.379$) exhibit alphas that are economically small and statistically indistinguishable from zero. Even though \texttt{GE} experienced severe valuation losses after 2000 and 2008, its negative point estimate is not statistically significant over the full 40-year sample. By contrast, \texttt{JNJ} delivers a positive and highly significant alpha of $\hat{\alpha}_{\text{JNJ}} = 0.0058$ ($+0.584\%$ per month, $\approx +7.01\%$ annualized; $t = 2.66$, $p = 0.0081$). Economically, \texttt{JNJ} outperformed its 3-factor risk benchmark over 1980--2019, consistent with empirical evidence that high-profitability, low-risk quality stocks earned positive abnormal returns relative to the 3-factor model (a pattern that later motivated Fama and French's 5-factor model adding profitability and investment).
+\textit{Size exposure ($\hat{\beta}_{2,i}$).} All three companies load negatively and significantly on \texttt{SMB}: $-0.2059$ for \texttt{IBM} ($p = 0.039$), $-0.3057$ for \texttt{GE} ($p < 0.001$), and $-0.5849$ for \texttt{JNJ} ($p < 0.001$). Because \texttt{SMB} is long small firms and short large firms, negative loadings are expected for Dow Jones mega-cap companies. The exposure is especially large in magnitude for \texttt{JNJ} ($-0.58$), reflecting its steady large-cap profile over the sample.
 
-    \item \textbf{Market Factor Exposure ($\hat{\beta}_{MKT}$):}
-    All three market betas are large and overwhelmingly significant ($p < 0.0001$), and they differ substantially across industries in economically intuitive ways:
-    \begin{itemize}
-        \item \texttt{GE} has $\hat{\beta}_{MKT} = 1.2270$ ($t = 21.62$), significantly above $1$, reflecting high cyclicality as an industrial conglomerate with large financial-services leverage (GE Capital) during much of the sample.
-        \item \texttt{IBM} has $\hat{\beta}_{MKT} = 0.8981$ ($t = 13.39$), indicating slightly below-market systematic sensitivity typical of an established enterprise technology and services firm.
-        \item \texttt{JNJ} has $\hat{\beta}_{MKT} = 0.6942$ ($t = 13.44$), well below $1$, reflecting the defensive, non-cyclical nature of pharmaceuticals, medical devices, and consumer health products whose cash flows are relatively insulated from macroeconomic downturns.
-    \end{itemize}
+\textit{Value--growth exposure ($\hat{\beta}_{3,i}$).} The \texttt{HML} loadings are smaller in magnitude than the market betas, statistically significant at the $5\%$ level for all three firms, and differ in sign. \texttt{GE} loads positively on \texttt{HML} ($+0.2852$, $p = 0.001$), behaving like a value stock due to its capital-intensive industrial and financial assets. \texttt{IBM} ($-0.2286$, $p = 0.026$) and \texttt{JNJ} ($-0.2001$, $p = 0.012$) both load negatively, tilting modestly toward growth stocks whose valuations rely more heavily on R\&D, patents, and brand intangibles rather than book assets.
 
-    \item \textbf{Size Factor Exposure ($\hat{\beta}_{SMB}$):}
-    All three firms load \textbf{negatively and significantly} on \texttt{SMB}: $-0.2059$ ($p = 0.039$) for \texttt{IBM}, $-0.3057$ ($p = 0.0003$) for \texttt{GE}, and $-0.5849$ ($p < 0.0001$) for \texttt{JNJ}. Since \texttt{SMB} is long small-cap stocks and short large-cap stocks, a negative loading signifies large-cap behavior. All three companies are iconic Dow Jones mega-cap blue-chip corporations; \texttt{JNJ}'s particularly large negative loading ($-0.58$) reflects its status as one of the largest, most stable mega-cap equities throughout the 1980--2019 period.
-
-    \item \textbf{Value--Growth Factor Exposure ($\hat{\beta}_{HML}$):}
-    Here the three firms diverge markedly in sign:
-    \begin{itemize}
-        \item \texttt{GE} has a positive, statistically significant loading on \texttt{HML} ($\hat{\beta}_{HML} = +0.2852$, $t = 3.29$, $p = 0.0011$), behaving like a value stock (capital-intensive industrials and financial services trading at higher book-to-market ratios, particularly post-2008).
-        \item \texttt{IBM} ($\hat{\beta}_{HML} = -0.2286$, $t = -2.23$, $p = 0.0261$) and \texttt{JNJ} ($\hat{\beta}_{HML} = -0.2001$, $t = -2.53$, $p = 0.0116$) both load negatively and significantly at the 5\% level on \texttt{HML}, reflecting growth/intangible-asset characteristics (patents, R\&D, software, brand equity) that keep book-to-market ratios low relative to traditional industrial/financial firms.
-    \end{itemize}
-
-    \item \textbf{Explanatory Power ($R^2$) and Idiosyncratic Risk ($\hat{\sigma}_i^2$):}
-    The 3-factor model explains $49.74\%$ of the monthly excess return variance for \texttt{GE}, compared to $32.67\%$ for \texttt{JNJ} and $30.71\%$ for \texttt{IBM}. Conversely, \texttt{IBM} exhibits the largest idiosyncratic residual variance ($\hat{\sigma}^2 = 0.003747$, $\hat{\sigma} = 6.12\%$/mo), reflecting major firm-specific structural transitions (hardware-to-services pivot in the 1990s), while \texttt{JNJ} has the lowest idiosyncratic volatility ($\hat{\sigma} = 4.72\%$/mo).
-\end{enumerate}
+\textit{Fit and idiosyncratic risk.} The three factors explain nearly half of the return variance for \texttt{GE} ($R^2 = 0.4974$) and roughly one third for \texttt{JNJ} ($0.3267$) and \texttt{IBM} ($0.3071$). Firm-specific monthly residual volatility is largest for \texttt{IBM} ($\hat{\sigma} = 6.12\%$), reflecting major company-specific shifts over the period, followed by \texttt{GE} ($5.18\%$) and \texttt{JNJ} ($4.72\%$).
 
 \end{document}
